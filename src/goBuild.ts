@@ -8,6 +8,7 @@ import { getTestFlags } from './testUtils';
 import { getCurrentGoWorkspaceFromGOPATH } from './goPath';
 import { diagnosticsStatusBarItem } from './goStatus';
 import { isModSupported } from './goModules';
+import { buildDiagnosticCollection } from './goMain';
 /**
  * Builds current package or workspace.
  */
@@ -34,7 +35,7 @@ export function buildCode(buildWorkspace?: boolean) {
 	isModSupported(documentUri).then(isMod => {
 		goBuild(documentUri, isMod, goConfig, buildWorkspace)
 		.then(errors => {
-			handleDiagnosticErrors(editor ? editor.document : null, errors, vscode.DiagnosticSeverity.Error);
+			handleDiagnosticErrors(editor ? editor.document : null, errors, buildDiagnosticCollection);
 			diagnosticsStatusBarItem.hide();
 		})
 		.catch(err => {
@@ -76,7 +77,7 @@ export function goBuild(fileUri: vscode.Uri, isMod: boolean, goConfig: vscode.Wo
 	const buildEnv = Object.assign({}, getToolsEnvVars());
 	const tmpPath = getTempFilePath('go-code-check');
 	const isTestFile = fileUri && fileUri.fsPath.endsWith('_test.go');
-	const buildFlags: string[] = isTestFile ? getTestFlags(goConfig, null) : (Array.isArray(goConfig['buildFlags']) ? [...goConfig['buildFlags']] : []);
+	const buildFlags: string[] = isTestFile ? getTestFlags(goConfig) : (Array.isArray(goConfig['buildFlags']) ? [...goConfig['buildFlags']] : []);
 	const buildArgs: string[] = isTestFile ? ['test', '-c'] : ['build'];
 
 	if (goConfig['installDependenciesWhenBuilding'] === true && !isMod) {
@@ -93,30 +94,19 @@ export function goBuild(fileUri: vscode.Uri, isMod: boolean, goConfig: vscode.Wo
 	}
 
 	if (buildWorkspace && currentWorkspace && !isTestFile) {
-		let count = 1;
+		outputChannel.appendLine(`Starting building the current workspace at ${currentWorkspace}`);
 		return getNonVendorPackages(currentWorkspace).then(pkgs => {
-			let buildPromises = [];
-			buildPromises = Array.from(pkgs.keys()).map(pkgPath => {
-				running = true;
-				return runTool(
-					buildArgs.concat('-o', `${tmpPath}-${count++}`, pkgPath),
-					currentWorkspace,
-					'error',
-					true,
-					null,
-					buildEnv,
-					true,
-					tokenSource.token
-				);
-			});
-			return Promise.all(buildPromises).then((resultSets) => {
-				let results: ICheckResult[] = [].concat.apply([], resultSets);
-				// Filter duplicates
-				return results.filter((results, index, self) =>
-					self.findIndex((t) => {
-						return t.file === results.file && t.line === results.line && t.msg === results.msg && t.severity === results.severity;
-					}) === index);
-			}).then(v => {
+			running = true;
+			return runTool(
+				buildArgs.concat(Array.from(pkgs.keys())),
+				currentWorkspace,
+				'error',
+				true,
+				null,
+				buildEnv,
+				true,
+				tokenSource.token
+			).then(v => {
 				updateRunning();
 				return v;
 			});
@@ -127,6 +117,7 @@ export function goBuild(fileUri: vscode.Uri, isMod: boolean, goConfig: vscode.Wo
 	let currentGoWorkspace = getCurrentGoWorkspaceFromGOPATH(getCurrentGoPath(), cwd);
 	let importPath = currentGoWorkspace ? cwd.substr(currentGoWorkspace.length + 1) : '.';
 	running = true;
+	outputChannel.appendLine(`Starting building the current package at ${cwd}`);
 	return runTool(
 		buildArgs.concat('-o', tmpPath, importPath),
 		cwd,
