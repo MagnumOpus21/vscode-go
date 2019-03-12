@@ -80,7 +80,7 @@ suite('expandFilePathInOutput tests', () => {
 	test('windows compile error expand path test' , () => {
 		const sampleErrorMessage = '.\\sample.go:11:3: syntax error';
 		const testDir = 'D:/Test/Expand Path/';
-		const expectedPathMessage = path.win32.join(testDir, sampleErrorMessage);
+		const expectedPathMessage = path.join(testDir, sampleErrorMessage);
 		const outputMessage = expandFilePathInOutput(sampleErrorMessage, testDir);
 
 		// Check the validity of the expected output
