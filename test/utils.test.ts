@@ -6,6 +6,7 @@
 import { guessPackageNameFromFile } from '../src/util';
 import * as assert from 'assert';
 import { substituteEnv } from '../src/util';
+import { expandFilePathInOutput } from '../src/testUtils';
 
 suite('utils Tests', () => {
 	test('substituteEnv: default', () => {
@@ -63,3 +64,36 @@ suite('GuessPackageNameFromFile Tests', () => {
 	});
 });
 
+suite('expandFilePathInOutput tests', () =>{
+	test('expand path test' , () =>{
+		const expectedPathMessage = 'demo_test.go:11: No';
+		const sampleErrorMessage = '/home/user/expand/path/demo_test.go:11: No';
+		const testDir = '/home/user/expand/path/';
+		const outputMessage = expandFilePathInOutput(sampleErrorMessage, testDir);
+		
+		// Check the validity of the expected output
+		console.log("Expected " + outputMessage +" Input:" + sampleErrorMessage);
+		assert(outputMessage, expectedPathMessage);
+	});
+	
+	test('windows compile error expand path test' , () => {
+		const expectedPathMessage = 'D:/Test/Expand Path/sample.go:11:3: syntax error';
+		const sampleErrorMessage = 'sample.go:11:3: syntax error';
+		const testDir = 'D:/Test/Expand Path/';
+		const outputMessage = expandFilePathInOutput(sampleErrorMessage, testDir);
+		
+		// Check the validity of the expected output
+		console.log("Windows Expected " + outputMessage.length + ' Sample: ' + expectedPathMessage.length);
+		assert(outputMessage, expectedPathMessage);
+	});
+	test('*nix compile error expand path test' , () =>{
+		const expectedPathMessage = '/home/user/expand/path/sample.go:11:3: syntax error';
+		const sampleErrorMessage = './sample.go:11:3: syntax error';
+		const testDir = '/home/user/expand/path/';
+		const outputMessage = expandFilePathInOutput(sampleErrorMessage, testDir);
+		
+		// Check the validity of the expected output
+		console.log("Expected " + outputMessage +" Input:" + sampleErrorMessage);
+		assert(outputMessage, expectedPathMessage);
+	});
+});
